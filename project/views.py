@@ -1,6 +1,6 @@
-from project import app
+from project import app, manager
+from project.models import Channel
 
 
-@app.route('/')
-def index():
-    return 'Hello World'
+# APIs
+manager.create_api(Channel, methods=['GET'])
