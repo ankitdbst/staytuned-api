@@ -11,8 +11,10 @@ def build_url(scheme, base_url, path, query_params):
         URL_COLON + URL_SEPARATOR + URL_SEPARATOR + \
         base_url + URL_SEPARATOR + path
 
-    if query_params:
-        url += URL_QUERY_SEPARATOR
+    if query_params is None:
+        return url
+
+    url += URL_QUERY_SEPARATOR
 
     for key, value in query_params.iteritems():
         url += key + '=' + urllib.urlencode(value) + URL_QUERY_PARAM_SEPARATOR

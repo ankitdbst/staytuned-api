@@ -1,14 +1,7 @@
-import json
 from tvlistings import app
+from cron import update_listings
 
 
 @app.route('/')
-def index():
-    return json.dumps({})
-
-
-@app.route('/cron')
 def cron():
-    return json.dumps(
-        {'a': 'b'}
-    )
+    update_listings()
