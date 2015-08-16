@@ -7,7 +7,7 @@ from flask import Flask, request, flash, url_for, redirect, \
 
 @app.route('/')
 def index():
-    return render_template('index.html')
+    return render_template('templates/index.html')
 
 
 @app.route('/<path:resource>')
