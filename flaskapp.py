@@ -5,6 +5,11 @@ from flask import Flask, request, flash, url_for, redirect, \
      render_template, abort, send_from_directory
 
 
+@app.route("/")
+def index():
+    return "Hello World!"
+
+
 @app.route("/test")
 def test():
     return "<strong>It's Alive!</strong>"
