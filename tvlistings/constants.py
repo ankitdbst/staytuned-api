@@ -14,6 +14,6 @@ QUERY_PARAM_TO_DATE_TIME = 'todatetime'
 TV_LISTINGS_COLLECTION = 'tv_listings'
 TV_CHANNELS_COLLECTION = 'tv_channels'
 TV_LISTING_LANGUAGES = ('english', 'hindi')
-TV_LISTINGS_CATEGORY = ('movies', 'entertainment', 'sports', 'kids', 'lifestyle', 'music', 'news', 'documentary',
+TV_LISTINGS_CATEGORY = ('movies', 'entertainment', 'sports', 'kids', 'food', 'music', 'news', 'documentary',
                         'religious')
 
