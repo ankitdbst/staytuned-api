@@ -1,8 +1,8 @@
 import os
-import constants
+import tvlistings.constants
 import requests
 from datetime import datetime, timedelta
-from util import build_url
+from tvlistings.util import build_url
 from pymongo import MongoClient
 
 # environ variables for Mongodb
@@ -19,8 +19,8 @@ MONGO_URI = 'mongodb://' + MONGO_USER_NAME + ':' + MONGO_USER_PASS + '@' \
 client = MongoClient(MONGO_URI)
 db = client[MONGO_DB_NAME]
 
-channels_collection = db[constants.TV_CHANNELS_COLLECTION]
-listings_collection = db[constants.TV_LISTINGS_COLLECTION]
+channels_collection = db[tvlistings.constants.TV_CHANNELS_COLLECTION]
+listings_collection = db[tvlistings.constants.TV_LISTINGS_COLLECTION]
 
 
 # retrieve next 6 days data from API
@@ -33,11 +33,11 @@ start_date = datetime.utcnow()
 
 def fetch_channels(category, lang):
     payload = {
-        constants.QUERY_PARAM_GENRE_NAME: category,
-        constants.QUERY_PARAM_USER_ID: '0',  # default is 0
-        constants.QUERY_PARAM_LANGUAGE_NAME: lang
+        tvlistings.constants.QUERY_PARAM_GENRE_NAME: category,
+        tvlistings.constants.QUERY_PARAM_USER_ID: '0',  # default is 0
+        tvlistings.constants.QUERY_PARAM_LANGUAGE_NAME: lang
     }
-    url = build_url('http', constants.TIMES_LISTING_API, constants.TIMES_CHANNEL_LIST_ENDPOINT, None)
+    url = build_url('http', tvlistings.constants.TIMES_LISTING_API, tvlistings.constants.TIMES_CHANNEL_LIST_ENDPOINT, None)
 
     r = requests.get(url, params=payload)
 
@@ -58,13 +58,13 @@ def fetch_imdb_info(programme):
 
 def fetch_listing(from_date, to_date, channels_param):
     payload = {
-        constants.QUERY_PARAM_CHANNEL_LIST: channels_param,
-        constants.QUERY_PARAM_USER_ID: 0,
-        constants.QUERY_PARAM_FROM_DATE_TIME: from_date,
-        constants.QUERY_PARAM_TO_DATE_TIME: to_date
+        tvlistings.constants.QUERY_PARAM_CHANNEL_LIST: channels_param,
+        tvlistings.constants.QUERY_PARAM_USER_ID: 0,
+        tvlistings.constants.QUERY_PARAM_FROM_DATE_TIME: from_date,
+        tvlistings.constants.QUERY_PARAM_TO_DATE_TIME: to_date
     }
 
-    url = build_url('http', constants.TIMES_LISTING_API, constants.TIMES_LISTINGS_ENDPOINT, None)
+    url = build_url('http', tvlistings.constants.TIMES_LISTING_API, tvlistings.constants.TIMES_LISTINGS_ENDPOINT, None)
 
     r = requests.get(url, params=payload)
 
@@ -118,8 +118,8 @@ def fetch_listings(dt, next_dt):
 
 def update_listings():
     # look for new channels
-    for category in constants.TV_LISTINGS_CATEGORY:
-        for lang in constants.TV_LISTING_LANGUAGES:
+    for category in tvlistings.constants.TV_LISTINGS_CATEGORY:
+        for lang in tvlistings.constants.TV_LISTING_LANGUAGES:
             fetch_channels(category, lang)
 
     # look for updated listings
