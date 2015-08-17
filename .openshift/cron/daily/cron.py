@@ -1,20 +1,10 @@
-import os
 import tvlistings.constants
 import requests
 from datetime import datetime, timedelta
 from tvlistings.util import build_url
+from config import *
 from pymongo import MongoClient
 
-# environ variables for Mongodb
-MONGO_DB_HOST = os.environ.get('OPENSHIFT_MONGODB_DB_HOST', '127.0.0.1')
-MONGO_DB_PORT = os.environ.get('OPENSHIFT_MONGODB_DB_PORT', '27017')
-MONGO_DB_NAME = os.environ.get('OPENSHIFT_MONGODB_DB_NAME', 'staytuned')
-
-MONGO_USER_NAME = os.environ.get('OPENSHIFT_MONGODB_USER_NAME', 'admin')
-MONGO_USER_PASS = os.environ.get('OPENSHIFT_MONGODB_USER_PASS', 'admin')
-
-MONGO_URI = 'mongodb://' + MONGO_USER_NAME + ':' + MONGO_USER_PASS + '@' \
-            + MONGO_DB_HOST + ':' + MONGO_DB_PORT
 
 client = MongoClient(MONGO_URI)
 db = client[MONGO_DB_NAME]
@@ -29,27 +19,6 @@ BATCH_SIZE = 25
 
 
 start_date = datetime.utcnow()
-
-
-def fetch_channels(category, lang):
-    payload = {
-        tvlistings.constants.QUERY_PARAM_GENRE_NAME: category,
-        tvlistings.constants.QUERY_PARAM_USER_ID: '0',  # default is 0
-        tvlistings.constants.QUERY_PARAM_LANGUAGE_NAME: lang
-    }
-    url = build_url('http', tvlistings.constants.TIMES_LISTING_API, tvlistings.constants.TIMES_CHANNEL_LIST_ENDPOINT, None)
-
-    r = requests.get(url, params=payload)
-
-    if r.status_code == 200:
-        for channel in r.text.split(','):
-            if not channels_collection.find_one({'_id': channel}):
-                channels_collection.insert_one({
-                    '_id': channel,
-                    'name': channel,
-                    'type': lang,
-                    'category': category
-                })
 
 
 def fetch_imdb_info(programme):
@@ -117,11 +86,6 @@ def fetch_listings(dt, next_dt):
 
 
 def update_listings():
-    # look for new channels
-    for category in tvlistings.constants.TV_LISTINGS_CATEGORY:
-        for lang in tvlistings.constants.TV_LISTING_LANGUAGES:
-            fetch_channels(category, lang)
-
     # look for updated listings
     dt = start_date
     while (dt - start_date).days < LISTINGS_SCHEDULE_DURATION+1:
@@ -134,3 +98,4 @@ def update_listings():
 
 if __name__ == '__main__':
     update_listings()
+    print 'updated listings for: ' + start_date.strftime("%Y-%m-%d")
