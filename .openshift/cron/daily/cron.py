@@ -9,6 +9,9 @@ from tvlistings.util import build_url
 from config import *
 from pymongo import MongoClient
 
+import Queue
+import threading
+
 client = MongoClient(MONGO_URI)
 db = client[MONGO_DB_NAME]
 
@@ -23,9 +26,59 @@ BATCH_SIZE = 25
 
 start_date = datetime.utcnow()
 
+queue = Queue.Queue()
+imdb_queue = Queue.Queue()
 
-def fetch_imdb_info(programme):
-    return True
+
+class ThreadUrl(threading.Thread):
+    """Threaded Url Grab"""
+    def __init__(self, q, imdb_q):
+        threading.Thread.__init__(self)
+        self.queue = q
+        self.imdb_queue = imdb_q
+
+    def run(self):
+        while True:
+            # grabs host from queue
+            item = self.queue.get()
+
+            r = requests.get(item['url'], params=item['params'])
+
+            data = None
+            if r.status_code == 200:
+                try:
+                    data = r.json()
+                except ValueError:
+                    # print 'error parsing json data'
+                    return
+
+                schedule = data.get('ScheduleGrid', None)
+                if schedule is not None:
+                    channel_listings = schedule.get('channel', None)
+                    if channel_listings is not None:
+                        update_channel_listing(channel_listings, self.imdb_queue)
+
+            # signals to queue job is done
+            self.queue.task_done()
+
+
+class DatamineThread(threading.Thread):
+    """Threaded Url Grab"""
+    def __init__(self, q):
+        threading.Thread.__init__(self)
+        self.imdb_queue = q
+
+    def run(self):
+        while True:
+            # grabs host from queue
+            item = self.imdb_queue.get()
+
+            #parse the chunk
+            soup = BeautifulSoup(chunk)
+            print soup.findAll(['title'])
+
+            #signals to queue job is done
+            self.out_queue.task_done()
 
 
 def fetch_listing(from_date, to_date, channels_param):
@@ -38,24 +91,13 @@ def fetch_listing(from_date, to_date, channels_param):
 
     url = build_url('http', tvlistings.constants.TIMES_LISTING_API, tvlistings.constants.TIMES_LISTINGS_ENDPOINT, None)
 
-    r = requests.get(url, params=payload)
-
-    data = None
-    if r.status_code == 200:
-        try:
-            data = r.json()
-        except ValueError:
-            # print 'error parsing json data'
-            return
-
-        schedule = data.get('ScheduleGrid', None)
-        if schedule is not None:
-            channel_listings = schedule.get('channel', None)
-            if channel_listings is not None:
-                update_channel_listing(channel_listings)
+    queue.put({
+        'url': url,
+        'params': payload
+    })
 
 
-def update_channel_listing(channels):
+def update_channel_listing(channels, imdb_q):
     if channels is None:
         return
 
@@ -67,6 +109,9 @@ def update_channel_listing(channels):
                 programme['channel_name'] = channel['display-name']
                 # replace the existing programme with the latest
                 listings_collection.replace_one({'_id': programme['_id']}, programme, True)
+
+                # place chunk into out queue
+                imdb_q.put(programme)
 
 
 def fetch_listings(dt, next_dt):
