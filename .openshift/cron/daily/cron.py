@@ -1,10 +1,13 @@
+import sys
+import os
+sys.path.append(os.path.join(os.path.dirname(__file__), '..', '..', '..'))
+
 import tvlistings.constants
 import requests
 from datetime import datetime, timedelta
 from tvlistings.util import build_url
 from config import *
 from pymongo import MongoClient
-
 
 client = MongoClient(MONGO_URI)
 db = client[MONGO_DB_NAME]
