@@ -4,6 +4,7 @@ sys.path.append(os.path.join(os.path.dirname(__file__), '..', '..', '..'))
 
 import tvlistings.constants
 import requests
+import time
 from datetime import datetime, timedelta
 from tvlistings.util import build_url
 from config import *
@@ -26,23 +27,25 @@ BATCH_SIZE = 25
 
 start_date = datetime.utcnow()
 
+# Holds the urls for fetching listings for BATCH_SIZE channels
 queue = Queue.Queue()
-imdb_queue = Queue.Queue()
+# Processor queue for fetching extra information for each programme.
+# using either IMDb APIs or TIMES APIs
+processor_queue = Queue.Queue()
 
 
 class ThreadUrl(threading.Thread):
     """Threaded Url Grab"""
-    def __init__(self, q, imdb_q):
+    def __init__(self, q):
         threading.Thread.__init__(self)
         self.queue = q
-        self.imdb_queue = imdb_q
 
     def run(self):
         while True:
             # grabs host from queue
-            item = self.queue.get()
+            request = self.queue.get()
 
-            r = requests.get(item['url'], params=item['params'])
+            r = requests.get(request.get('url'), params=request.get('params'))
 
             data = None
             if r.status_code == 200:
@@ -56,48 +59,30 @@ class ThreadUrl(threading.Thread):
                 if schedule is not None:
                     channel_listings = schedule.get('channel', None)
                     if channel_listings is not None:
-                        update_channel_listing(channel_listings, self.imdb_queue)
+                        update_channel_listing(channel_listings)
 
             # signals to queue job is done
             self.queue.task_done()
 
 
-class DatamineThread(threading.Thread):
+class PopulateDataThread(threading.Thread):
     """Threaded Url Grab"""
-    def __init__(self, q):
+    def __init__(self, queue):
         threading.Thread.__init__(self)
-        self.imdb_queue = q
+        self.processor_queue = queue
 
     def run(self):
         while True:
             # grabs host from queue
-            item = self.imdb_queue.get()
+            item = self.processor_queue.get()
 
-            #parse the chunk
-            soup = BeautifulSoup(chunk)
-            print soup.findAll(['title'])
+            # processing for extra information
 
-            #signals to queue job is done
-            self.out_queue.task_done()
+            # signals to queue job is done
+            self.processor_queue.task_done()
 
 
-def fetch_listing(from_date, to_date, channels_param):
-    payload = {
-        tvlistings.constants.QUERY_PARAM_CHANNEL_LIST: channels_param,
-        tvlistings.constants.QUERY_PARAM_USER_ID: 0,
-        tvlistings.constants.QUERY_PARAM_FROM_DATE_TIME: from_date,
-        tvlistings.constants.QUERY_PARAM_TO_DATE_TIME: to_date
-    }
-
-    url = build_url('http', tvlistings.constants.TIMES_LISTING_API, tvlistings.constants.TIMES_LISTINGS_ENDPOINT, None)
-
-    queue.put({
-        'url': url,
-        'params': payload
-    })
-
-
-def update_channel_listing(channels, imdb_q):
+def update_channel_listing(channels):
     if channels is None:
         return
 
@@ -110,8 +95,23 @@ def update_channel_listing(channels, imdb_q):
                 # replace the existing programme with the latest
                 listings_collection.replace_one({'_id': programme['_id']}, programme, True)
 
-                # place chunk into out queue
-                imdb_q.put(programme)
+                # place chunk into info queue
+                # processor_queue.put(programme)
+
+
+def update_queue(channels_param, from_date, to_date):
+    payload = {
+        tvlistings.constants.QUERY_PARAM_CHANNEL_LIST: channels_param,
+        tvlistings.constants.QUERY_PARAM_USER_ID: 0,
+        tvlistings.constants.QUERY_PARAM_FROM_DATE_TIME: from_date,
+        tvlistings.constants.QUERY_PARAM_TO_DATE_TIME: to_date
+    }
+    url = build_url('http', tvlistings.constants.TIMES_LISTING_API,
+                    tvlistings.constants.TIMES_LISTINGS_ENDPOINT, None)
+    queue.put({
+        'url': url,
+        'params': payload
+    })
 
 
 def fetch_listings(dt, next_dt):
@@ -124,26 +124,43 @@ def fetch_listings(dt, next_dt):
         ctr += 1
         channels_param += channel.get('name') + ','
         if ctr == BATCH_SIZE:
-            # print 'updating channels: ' + channels_param
-            fetch_listing(from_date, to_date, channels_param)
+            update_queue(channels_param, from_date, to_date)
             channels_param = ''
             ctr = 0
 
     if ctr > 0:
-        fetch_listing(from_date, to_date, channels_param)
+        update_queue(channels_param, from_date, to_date)
 
 
 def update_listings():
     # look for updated listings
     dt = start_date
     while (dt - start_date).days < LISTINGS_SCHEDULE_DURATION+1:
-        # print 'fetching listings for date: ' + dt.strftime("%Y-%m-%d") + ' delta: ' + str((dt - start_date).days)
-        # print '--------------------------------'
+        print 'fetching listings for date: ' + dt.strftime("%Y-%m-%d") + ' delta: ' + str((dt - start_date).days)
+        print '--------------------------------'
         next_dt = dt + timedelta(days=1)
         fetch_listings(dt, next_dt)
         dt = next_dt
 
 
+start = time.time()
 if __name__ == '__main__':
+    # spawn a pool of threads, and pass them queue instance
+    for i in range(6):
+        t = ThreadUrl(queue)
+        t.setDaemon(True)
+        t.start()
+
     update_listings()
+
+    # # spawn a pool of threads, and pass them queue instance
+    # for i in range(5):
+    #     t = PopulateDataThread(processor_queue)
+    #     t.setDaemon(True)
+    #     t.start()
+
+    queue.join()
+    # processor_queue.join()
+
     print 'updated listings for: ' + start_date.strftime("%Y-%m-%d")
+    print "Elapsed Time: %s" % (time.time() - start)
