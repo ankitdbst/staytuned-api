@@ -82,6 +82,27 @@ class PopulateDataThread(threading.Thread):
             self.processor_queue.task_done()
 
 
+def imdb_query_url(title, id):
+    if not title and not id:
+        return
+
+    url = build_url('http', tvlistings.constants.IMDB_API)
+    payload = {
+        tvlistings.constants.IMDB_QUERY_PLOT_TYPE: 'short',
+        tvlistings.constants.IMDB_QUERY_RETURN_TYPE: 'json'
+    }
+
+    if id:
+        payload[tvlistings.constants.IMDB_QUERY_BY_ID] = id
+    else:
+        payload[tvlistings.constants.IMDB_QUERY_BY_ID] = id
+
+    processor_queue.put({
+        'url': url,
+        'params': payload
+    })
+
+
 def update_channel_listing(channels):
     if channels is None:
         return
@@ -92,12 +113,12 @@ def update_channel_listing(channels):
             for programme in programmes:
                 programme['_id'] = programme['programmeid'] + ':' + programme['start']
                 programme['channel_name'] = channel['display-name']
+
                 # replace the existing programme with the latest
                 listings_collection.replace_one({'_id': programme['_id']}, programme, True)
 
                 # place chunk into info queue
-                # processor_queue.put(programme)
-
+                if programme.
 
 def update_queue(channels_param, from_date, to_date):
     payload = {
@@ -150,6 +171,7 @@ if __name__ == '__main__':
         t = ThreadUrl(queue)
         t.setDaemon(True)
         t.start()
+
 
     update_listings()
 

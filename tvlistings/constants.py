@@ -17,3 +17,8 @@ TV_LISTING_LANGUAGES = ('english', 'hindi')
 TV_LISTINGS_CATEGORY = ('movies', 'entertainment', 'sports', 'kids', 'food', 'music', 'news', 'documentary',
                         'religious')
 
+IMDB_API = 'omdbapi.com'
+IMDB_QUERY_RETURN_TYPE = 'r'
+IMDB_QUERY_PLOT_TYPE = 'plot'
+IMDB_QUERY_BY_TITLE = 't'
+IMDB_QUERY_BY_ID = 'i'
