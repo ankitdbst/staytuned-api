@@ -12,6 +12,7 @@ from pymongo import MongoClient
 
 from tvlistings.volley import Volley
 import urlparse
+import HTMLParser
 
 
 client = MongoClient(MONGO_URI)
@@ -22,10 +23,10 @@ listings_collection = db[tvlistings.constants.TV_LISTINGS_COLLECTION]
 
 
 # retrieve next 6 days data from API
-LISTINGS_SCHEDULE_DURATION = 6
+LISTINGS_SCHEDULE_DURATION = 1
 BATCH_SIZE = 25
 
-volley = Volley()
+volley = Volley(thread_pool=8)
 
 start_date = datetime.utcnow()
 
@@ -39,7 +40,7 @@ def imdb_request_cb(r, *args, **kwargs):
             return
 
         response = data.get('Response', None)
-        if response:
+        if response == 'True':
             o = urlparse.urlparse(r.url)
             query_params = urlparse.parse_qs(o.query)
             programme_id = query_params.get(tvlistings.constants.IMDB_QUERY_PID)[0]
@@ -47,8 +48,11 @@ def imdb_request_cb(r, *args, **kwargs):
             del data['Response']
             listings_collection.update(
                 {'_id': programme_id},
-                data
+                {'$set': {'imdb': data}}
             )
+            # print 'updated response for: ' + programme_id
+        else:
+            print r.url
 
 
 def fetch_request_imdb(title, pid, id=None):
@@ -80,12 +84,22 @@ def update_channel_listing(channels):
             for programme in programmes:
                 programme['_id'] = programme['programmeid'] + ':' + programme['start']
                 programme['channel_name'] = channel['display-name']
+                programme['title'] = HTMLParser.HTMLParser().unescape(programme['title'])
 
                 # replace the existing programme with the latest
-                listings_collection.replace_one({'_id': programme['_id']}, programme, True)
+                listings_collection.update(
+                    {'_id': programme['_id']},
+                    programme,
+                    upsert=True
+                )
 
-                # retrieve imdb info
-                fetch_request_imdb(programme.get('title'), programme.get('_id'))
+                # IMDb info should be fetched only for movies/entertainment and english/hindi
+                if channels_collection.find_one({
+                    'name': programme['channel_name'],
+                    'category': {'$in': ['entertainment', 'movies']}
+                }):
+                    # retrieve imdb info
+                    fetch_request_imdb(programme.get('title'), programme.get('_id'))
 
 
 def listing_request_cb(r, *args, **kwargs):
