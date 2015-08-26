@@ -1,5 +1,22 @@
-import sys
+#!/usr/bin/env python
+
 import os
+import sys
+
+try:
+    virtenv = os.path.join(os.environ.get('OPENSHIFT_PYTHON_DIR','.'), 'virtenv')
+    python_version = "python"+str(sys.version_info[0])+"."+str(sys.version_info[1])
+    os.environ['PYTHON_EGG_CACHE'] = os.path.join(virtenv, 'lib', python_version, 'site-packages')
+    virtualenv = os.path.join(virtenv, 'bin','activate_this.py')
+    if sys.version_info[0] < 3:
+        execfile(virtualenv, dict(__file__=virtualenv))
+    else:
+        exec(open(virtualenv).read(), dict(__file__=virtualenv))
+
+except IOError:
+    pass
+
+
 sys.path.append(os.path.join(os.path.dirname(__file__), '..', '..', '..'))
 
 import tvlistings.constants
@@ -23,10 +40,10 @@ listings_collection = db[tvlistings.constants.TV_LISTINGS_COLLECTION]
 
 
 # retrieve next 6 days data from API
-LISTINGS_SCHEDULE_DURATION = 1
+LISTINGS_SCHEDULE_DURATION = 6
 BATCH_SIZE = 25
 
-volley = Volley(thread_pool=8)
+volley = Volley(thread_pool=200)
 
 start_date = datetime.utcnow()
 
@@ -51,8 +68,8 @@ def imdb_request_cb(r, *args, **kwargs):
                 {'$set': {'imdb': data}}
             )
             # print 'updated response for: ' + programme_id
-        else:
-            print r.url
+        # else:
+        #     print r.url
 
 
 def fetch_request_imdb(title, pid, id=None):
@@ -85,6 +102,7 @@ def update_channel_listing(channels):
                 programme['_id'] = programme['programmeid'] + ':' + programme['start']
                 programme['channel_name'] = channel['display-name']
                 programme['title'] = HTMLParser.HTMLParser().unescape(programme['title'])
+                programme['title'].replace('&apos;', "'")
 
                 # replace the existing programme with the latest
                 listings_collection.update(
@@ -96,7 +114,10 @@ def update_channel_listing(channels):
                 # IMDb info should be fetched only for movies/entertainment and english/hindi
                 if channels_collection.find_one({
                     'name': programme['channel_name'],
-                    'category': {'$in': ['entertainment', 'movies']}
+                    '$or': [
+                        {'category': 'movies'},
+                        {'category': 'entertainment', 'type': 'english'}
+                    ]
                 }):
                     # retrieve imdb info
                     fetch_request_imdb(programme.get('title'), programme.get('_id'))
