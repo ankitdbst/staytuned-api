@@ -1,4 +1,3 @@
-"""
 #!/usr/bin/env python
 
 import os
@@ -17,9 +16,6 @@ try:
 except IOError:
     pass
 
-"""
-import os
-import sys
 sys.path.append(os.path.join(os.path.dirname(__file__), '..', '..', '..'))
 
 import tvlistings.constants
