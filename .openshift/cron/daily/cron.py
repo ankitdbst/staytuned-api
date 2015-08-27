@@ -1,3 +1,4 @@
+"""
 #!/usr/bin/env python
 
 import os
@@ -16,7 +17,9 @@ try:
 except IOError:
     pass
 
-
+"""
+import os
+import sys
 sys.path.append(os.path.join(os.path.dirname(__file__), '..', '..', '..'))
 
 import tvlistings.constants
@@ -43,7 +46,7 @@ listings_collection = db[tvlistings.constants.TV_LISTINGS_COLLECTION]
 LISTINGS_SCHEDULE_DURATION = 6
 BATCH_SIZE = 25
 
-volley = Volley(thread_pool=200)
+volley = Volley(thread_pool=6)
 
 start_date = datetime.utcnow()
 
@@ -67,7 +70,7 @@ def imdb_request_cb(r, *args, **kwargs):
                 {'_id': programme_id},
                 {'$set': {'imdb': data}}
             )
-            # print 'updated response for: ' + programme_id
+            print 'updated response for: ' + programme_id
         # else:
         #     print r.url
 
@@ -101,8 +104,7 @@ def update_channel_listing(channels):
             for programme in programmes:
                 programme['_id'] = programme['programmeid'] + ':' + programme['start']
                 programme['channel_name'] = channel['display-name']
-                programme['title'] = HTMLParser.HTMLParser().unescape(programme['title'])
-                programme['title'].replace('&apos;', "'")
+                programme['title'] = HTMLParser.HTMLParser().unescape(programme['title']).replace('&apos;', "'")
 
                 # replace the existing programme with the latest
                 listings_collection.update(
