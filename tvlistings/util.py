@@ -36,6 +36,10 @@ def cleanse_title(title):
     return title[:-1]
 
 
+def get_slug(title):
+    return '-'.join(title.split(' '))
+
+
 def compute_closest_match(title, results):
     min_distance = 1000
     best_match = ''

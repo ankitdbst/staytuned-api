@@ -20,16 +20,17 @@ except IOError:
 sys.path.append(os.path.join(os.path.dirname(__file__), '..', '..', '..'))
 
 import tvlistings.constants
-import requests
 import time
+
 from datetime import datetime, timedelta
-from tvlistings.util import build_url
+from tvlistings.util import build_url, get_slug
 from config import *
-from pymongo import MongoClient
+from pymongo import MongoClient, IndexModel, ASCENDING, DESCENDING
 
 from tvlistings.volley import Volley
 import urlparse
 import HTMLParser
+from bs4 import BeautifulSoup
 
 
 client = MongoClient(MONGO_URI)
@@ -91,6 +92,39 @@ def fetch_request_imdb(title, pid, id=None):
     volley.get(url, payload, imdb_request_cb)
 
 
+def desc_request_cb(r, *args, **kwargs):
+    if r.status_code == '200':
+        data = r.text
+        soup = BeautifulSoup(data)
+        soup.find('#content_1 p')
+
+        o = urlparse.urlparse(r.url)
+        query_params = urlparse.parse_qs(o.query)
+        programme_id = query_params.get(tvlistings.constants.IMDB_QUERY_PID)[0]
+
+        listings_collection.update(
+            {'_id': programme_id},
+            {'$set': {'imdb': data}}
+        )
+        description =
+
+
+def fetch_request_desc(programme):
+    slug = get_slug(programme.get('title'))
+    programme_id = tvlistings.constants.TIMES_DESC_QUERY_PROGRAMME_ID + programme.get('programmeid')
+    channel_id = tvlistings.constants.TIMES_DESC_QUERY_PROGRAMME_ID + programme.get('channelid')
+    start_time = tvlistings.constants.TIMES_DESC_QUERY_START_TIME + programme.get('starttime')
+
+    url = build_url('http', tvlistings.constants.IMDB_API)
+    url += '/tv/programmes/' + slug + '/params/tvprogramme/' + programme_id + '/' + channel_id + '/' + start_time
+
+    payload = {
+        tvlistings.constants.IMDB_QUERY_PID: programme.get('_id')
+    }
+
+    volley.get(url, payload, imdb_request_cb)
+
+
 def update_channel_listing(channels):
     if channels is None:
         return
@@ -121,6 +155,9 @@ def update_channel_listing(channels):
                 }):
                     # retrieve imdb info
                     fetch_request_imdb(programme.get('title'), programme.get('_id'))
+                else:
+                    # retrieve info from TIMES about program desc
+                    fetch_request_desc(programme)
 
 
 def listing_request_cb(r, *args, **kwargs):
@@ -178,7 +215,18 @@ def update_listings():
         dt = next_dt
 
 
+def init():
+    listings_collection.drop_indexes()
+    listings_collection.drop()
+    # Set up indexes
+    channel_index = IndexModel([('channel_name', ASCENDING)])
+    start_index = IndexModel([('start', ASCENDING)])
+    stop_index = IndexModel([('stop', ASCENDING)])
+    listings_collection.create_indexes([channel_index, start_index, stop_index])
+
+
 def main():
+    init()
     print 'start processing...'
     start = time.time()
     update_listings()
