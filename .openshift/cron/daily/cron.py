@@ -67,7 +67,7 @@ def imdb_request_cb(r, *args, **kwargs):
                 {'_id': programme_id},
                 {'$set': {'imdb': data}}
             )
-            print 'updated response for: ' + programme_id
+            # print 'updated response for: ' + programme_id
         # else:
         #     print r.url
 
