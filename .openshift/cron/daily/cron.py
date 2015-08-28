@@ -224,13 +224,11 @@ def update_listings():
 
 
 def init():
-    listings_collection.drop_indexes()
     listings_collection.drop()
     # Set up indexes
-    channel_index = IndexModel([('channel_name', ASCENDING)])
-    start_index = IndexModel([('start', ASCENDING)])
-    stop_index = IndexModel([('stop', ASCENDING)])
-    listings_collection.create_indexes([channel_index, start_index, stop_index])
+    listings_collection.create_index('channel_name')
+    listings_collection.create_index('start')
+    listings_collection.create_index('stop')
 
 
 def main():
