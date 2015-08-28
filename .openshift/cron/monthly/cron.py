@@ -41,16 +41,34 @@ def channels_cb(r, *args, **kwargs):
         query_params = urlparse.parse_qs(o.query)
 
         for channel in r.text.split(','):
-            if not channels_collection.find_one({'_id': channel}):
+            category = query_params.get(tvlistings.constants.QUERY_PARAM_GENRE_NAME)
+            type = query_params.get(tvlistings.constants.QUERY_PARAM_LANGUAGE_NAME)
+
+            channel_doc = channels_collection.find_one({'_id': channel})
+            if channel_doc:
+                channels_collection.update_one(
+                    {'_id': channel},
+                    {
+                        '$set': {
+                            'category': channel_doc.get('category') + category
+                        }
+                    }
+                )
+            else:
                 channels_collection.insert_one({
                     '_id': channel,
                     'name': channel,
-                    'type': query_params.get(tvlistings.constants.QUERY_PARAM_LANGUAGE_NAME),
-                    'category': query_params.get(tvlistings.constants.QUERY_PARAM_GENRE_NAME)
+                    'type': type,
+                    'category': category
                 })
 
 
+def init():
+    channels_collection.drop()
+
+
 def main():
+    init()
     start = time.time()
     # populate queue with data
     for category in tvlistings.constants.TV_LISTINGS_CATEGORY:

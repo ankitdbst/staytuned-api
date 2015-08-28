@@ -10,17 +10,23 @@ listings_collection = db[constants.TV_LISTINGS_COLLECTION]
 @app.route('/api/channels', methods=['GET'])
 def get_channels():
     category = request.args.get('category', '')
-    lang = request.args.get('language', '')  # we don't support all the languages
+    lang = request.args.get('language', '')  # hindi/english
 
     if category == '' and lang == '':
         data = {
-            'error': 'category or language parameter not provided'
+            'error': 'category or language required'
         }
         return Response(response=json.dumps(data),
                         status=400,
                         mimetype="application/json")
 
-    cursor = channels_collection.find({'category': category, 'type': lang})
+    condition = dict()
+    if category:
+        condition['category'] = category
+    if lang:
+        condition['type'] = lang
+
+    cursor = channels_collection.find(condition)
     return Response(response=dumps(cursor),
                     status=200,
                     mimetype="application/json")

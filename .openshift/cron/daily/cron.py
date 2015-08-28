@@ -43,7 +43,7 @@ listings_collection = db[tvlistings.constants.TV_LISTINGS_COLLECTION]
 LISTINGS_SCHEDULE_DURATION = 6
 BATCH_SIZE = 25
 
-volley = Volley(thread_pool=6)
+volley = Volley(thread_pool=200)
 
 start_date = datetime.utcnow()
 
@@ -92,10 +92,18 @@ def fetch_request_imdb(title, pid, id=None):
 
 
 def desc_request_cb(r, *args, **kwargs):
-    if r.status_code == '200':
+    if r.status_code == 200:
         data = r.text
         soup = BeautifulSoup(data)
-        soup.find('#content_1 p')
+
+        synopsis = 'There is no synopsis available for this episode.'
+        user_rating = 'NA'
+
+        try:
+            synopsis = soup.find('div', class_='content').find_next('p').text
+            user_rating = soup.find('span', class_='avgusrrate').text
+        except AttributeError, e:
+            print 'Error: ' + str(e)
 
         o = urlparse.urlparse(r.url)
         query_params = urlparse.parse_qs(o.query)
@@ -103,25 +111,27 @@ def desc_request_cb(r, *args, **kwargs):
 
         listings_collection.update(
             {'_id': programme_id},
-            {'$set': {'imdb': data}}
+            {'$set': {
+                'synopsis': synopsis,
+                'user_rating': user_rating
+            }}
         )
-        description =
 
 
 def fetch_request_desc(programme):
     slug = get_slug(programme.get('title'))
     programme_id = tvlistings.constants.TIMES_DESC_QUERY_PROGRAMME_ID + programme.get('programmeid')
-    channel_id = tvlistings.constants.TIMES_DESC_QUERY_PROGRAMME_ID + programme.get('channelid')
-    start_time = tvlistings.constants.TIMES_DESC_QUERY_START_TIME + programme.get('starttime')
+    channel_id = tvlistings.constants.TIMES_DESC_QUERY_CHANNEL_ID + programme.get('channelid')
+    start_time = tvlistings.constants.TIMES_DESC_QUERY_START_TIME + programme.get('start')
 
-    url = build_url('http', tvlistings.constants.IMDB_API)
-    url += '/tv/programmes/' + slug + '/params/tvprogramme/' + programme_id + '/' + channel_id + '/' + start_time
+    url = build_url('http', tvlistings.constants.TIMES_LISTING_API)
+    url += 'tv/programmes/' + slug + '/params/tvprogramme/' + programme_id + '/' + channel_id + '/' + start_time
 
     payload = {
         tvlistings.constants.IMDB_QUERY_PID: programme.get('_id')
     }
 
-    volley.get(url, payload, imdb_request_cb)
+    volley.get(url, payload, desc_request_cb)
 
 
 def update_channel_listing(channels):
