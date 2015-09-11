@@ -14,12 +14,13 @@ class WorkerThread(threading.Thread):
             job = self.queue.get()
             if job:
                 try:
-                    # print 'working on: ' + job.get('url')
+                    print 'working on: ' + job.get('url')
                     requests.get(job.get('url'), params=job.get('params'), hooks=dict(response=job.get('cb')))
                     self.queue.task_done()
                 except requests.ConnectionError:
-                    # print 'Sleeping for 1 sec...'
+                    print 'Sleeping for 1 sec...'
                     time.sleep(1)
+
 
 class Volley:
     queue = Queue.Queue()
