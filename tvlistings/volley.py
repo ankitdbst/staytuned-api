@@ -1,6 +1,7 @@
 import Queue
 import threading
 import requests
+import time
 
 
 class WorkerThread(threading.Thread):
@@ -12,9 +13,13 @@ class WorkerThread(threading.Thread):
         while True:
             job = self.queue.get()
             if job:
-                requests.get(job.get('url'), params=job.get('params'), hooks=dict(response=job.get('cb')))
-                self.queue.task_done()
-
+                try:
+                    # print 'working on: ' + job.get('url')
+                    requests.get(job.get('url'), params=job.get('params'), hooks=dict(response=job.get('cb')))
+                    self.queue.task_done()
+                except requests.ConnectionError:
+                    # print 'Sleeping for 1 sec...'
+                    time.sleep(1)
 
 class Volley:
     queue = Queue.Queue()
