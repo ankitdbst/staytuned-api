@@ -1,6 +1,7 @@
 import Queue
 import threading
 import requests
+import time
 
 
 class WorkerThread(threading.Thread):
@@ -12,8 +13,11 @@ class WorkerThread(threading.Thread):
         while True:
             job = self.queue.get()
             if job:
-                requests.get(job.get('url'), params=job.get('params'), hooks=dict(response=job.get('cb')))
+                r = requests.get(job.get('url'), params=job.get('params'))
+                # requests.get(job.get('url'), params=job.get('params'), hooks=dict(response=job.get('cb')))
+                job.get('cb')(r)
                 self.queue.task_done()
+                print 'Task done'
 
 
 class Volley:
@@ -32,6 +36,9 @@ class Volley:
             'cb': cb
         }
         self.queue.put(job)
+
+        if self.queue.qsize() > 30:
+            time.sleep(5)
 
     def join(self):
         self.queue.join()

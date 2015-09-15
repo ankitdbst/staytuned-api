@@ -25,12 +25,14 @@ from datetime import datetime, timedelta
 from tvlistings.util import build_url, get_slug
 from config import *
 from pymongo import MongoClient, IndexModel, ASCENDING, DESCENDING
+from bson.objectid import ObjectId
 
 from tvlistings.volley import Volley
 import urlparse
 import HTMLParser
 from bs4 import BeautifulSoup
-
+import threading
+import pprint
 
 client = MongoClient(MONGO_URI)
 db = client[MONGO_DB_NAME]
@@ -43,10 +45,11 @@ listings_collection = db[tvlistings.constants.TV_LISTINGS_COLLECTION]
 LISTINGS_SCHEDULE_DURATION = 6
 BATCH_SIZE = 25
 
-volley = Volley(thread_pool=200)
-
+volley = Volley(thread_pool=30)
+total = 0
 start_date = datetime.utcnow()
 
+lock = threading.Lock()
 
 def imdb_request_cb(r, *args, **kwargs):
     if r.status_code == 200:
@@ -64,7 +67,7 @@ def imdb_request_cb(r, *args, **kwargs):
 
             del data['Response']
             listings_collection.update(
-                {'_id': programme_id},
+                {'_id': ObjectId(programme_id)},
                 {'$set': {'imdb': data}}
             )
             # print 'updated response for: ' + programme_id
@@ -94,7 +97,7 @@ def fetch_request_imdb(title, pid, id=None):
 def desc_request_cb(r, *args, **kwargs):
     if r.status_code == 200:
         data = r.text
-        soup = BeautifulSoup(data)
+        soup = BeautifulSoup(data, "html.parser")
 
         synopsis = 'There is no synopsis available for this episode.'
         user_rating = 'NA'
@@ -110,7 +113,7 @@ def desc_request_cb(r, *args, **kwargs):
         programme_id = query_params.get(tvlistings.constants.IMDB_QUERY_PID)[0]
 
         listings_collection.update(
-            {'_id': programme_id},
+            {'_id': ObjectId(programme_id)},
             {'$set': {
                 'synopsis': synopsis,
                 'user_rating': user_rating
@@ -138,42 +141,58 @@ def update_channel_listing(channels):
     if channels is None:
         return
 
+    global total
+
     for channel in channels:
         programmes = channel.get('programme', None)
         if programmes is not None:
+            lock.acquire()
+            total += len(programmes)
+            lock.release()
             for programme in programmes:
-                programme['_id'] = programme['programmeid'] + ':' + programme['start']
+                # programme['_id'] = programme['programmeid'] + ':' + programme['start']
                 programme['channel_name'] = channel['display-name']
                 programme['title'] = HTMLParser.HTMLParser().unescape(programme['title']).replace('&apos;', "'")
 
-                # replace the existing programme with the latest
-                listings_collection.update(
-                    {'_id': programme['_id']},
-                    programme,
-                    upsert=True
-                )
+                # try:
+                #     lock.acquire()
+                # print 'dbwrite:'
+                listings_collection.insert_one(programme)
+                # finally:
+                #     lock.release()
 
-                # IMDb info should be fetched only for movies/entertainment and english/hindi
-                if channels_collection.find_one({
-                    'name': programme['channel_name'],
-                    '$or': [
-                        {'category': 'movies'},
-                        {'category': 'entertainment', 'type': 'english'}
-                    ]
-                }):
-                    # retrieve imdb info
-                    fetch_request_imdb(programme.get('title'), programme.get('_id'))
-                else:
-                    # retrieve info from TIMES about program desc
-                    fetch_request_desc(programme)
+                # time.sleep(0.05)
+                # # replace the existing programme with the latest
+                # listings_collection.update(
+                #     {'_id': programme['_id']},
+                #     programme,
+                #     upsert=True
+                # )
 
+                # # IMDb info should be fetched only for movies/entertainment and english/hindi
+                # if channels_collection.find_one({
+                #     'name': programme['channel_name'],
+                #     '$or': [
+                #         {'category': 'movies'},
+                #         {'category': 'entertainment', 'type': 'english'}
+                #     ]
+                # }):
+                #     # retrieve imdb info
+                #     fetch_request_imdb(programme.get('title'), programme.get('_id'))
+                # else:
+                #     # retrieve info from TIMES about program desc
+                #     fetch_request_desc(programme)
+
+    print 'Finished task'
 
 def listing_request_cb(r, *args, **kwargs):
+    # print 'fetched: ' + r.url
     if r.status_code == 200:
         try:
             data = r.json()
-        except ValueError:
-            # print 'error parsing json data'
+        except ValueError, e:
+            volley.get(r.url, None, listing_request_cb)
+            print 'error: ', e
             return
 
         schedule = data.get('ScheduleGrid', None)
@@ -182,8 +201,11 @@ def listing_request_cb(r, *args, **kwargs):
             if channel_listings is not None:
                 update_channel_listing(channel_listings)
 
+    # volley.complete()
+
 
 def fetch_request(channels_param, from_date, to_date):
+    # print from_date, to_date
     payload = {
         tvlistings.constants.QUERY_PARAM_CHANNEL_LIST: channels_param,
         tvlistings.constants.QUERY_PARAM_USER_ID: 0,
@@ -238,7 +260,8 @@ def main():
     update_listings()
     # we wait for volley to complete execution of all requests
     volley.join()
-    print 'updated listings for: ' + start_date.strftime("%Y-%m-%d")
+    # print 'updated listings for: ' + start_date.strftime("%Y-%m-%d")
+    print 'Total: ', total
     print "Elapsed Time: %s" % (time.time() - start)
 
 
