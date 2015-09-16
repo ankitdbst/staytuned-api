@@ -45,18 +45,28 @@ listings_collection = db[tvlistings.constants.TV_LISTINGS_COLLECTION]
 LISTINGS_SCHEDULE_DURATION = 6
 BATCH_SIZE = 25
 
-volley = Volley(thread_pool=30)
+providers = {
+    'times': 0,
+    'omdb': 1
+}
+
+volley = Volley(thread_pool=25, providers=providers)
+
+
 total = 0
 start_date = datetime.utcnow()
 
 lock = threading.Lock()
 
+
 def imdb_request_cb(r, *args, **kwargs):
     if r.status_code == 200:
         try:
             data = r.json()
-        except ValueError:
-            # print 'error parsing json data'
+        except ValueError, e:
+            time.sleep(5)
+            volley.get(r.url, None, listing_request_cb, providers['omdb'])
+            print 'error: ', e
             return
 
         response = data.get('Response', None)
@@ -91,7 +101,7 @@ def fetch_request_imdb(title, pid, id=None):
     else:
         payload[tvlistings.constants.IMDB_QUERY_BY_TITLE] = title
 
-    volley.get(url, payload, imdb_request_cb)
+    volley.get(url, payload, imdb_request_cb, providers['omdb'])
 
 
 def desc_request_cb(r, *args, **kwargs):
@@ -107,6 +117,7 @@ def desc_request_cb(r, *args, **kwargs):
             user_rating = soup.find('span', class_='avgusrrate').text
         except AttributeError, e:
             print 'Error: ' + str(e)
+            return
 
         o = urlparse.urlparse(r.url)
         query_params = urlparse.parse_qs(o.query)
@@ -134,7 +145,7 @@ def fetch_request_desc(programme):
         tvlistings.constants.IMDB_QUERY_PID: programme.get('_id')
     }
 
-    volley.get(url, payload, desc_request_cb)
+    volley.get(url, payload, desc_request_cb, providers['times'])
 
 
 def update_channel_listing(channels):
@@ -169,21 +180,22 @@ def update_channel_listing(channels):
                 #     upsert=True
                 # )
 
-                # # IMDb info should be fetched only for movies/entertainment and english/hindi
-                # if channels_collection.find_one({
-                #     'name': programme['channel_name'],
-                #     '$or': [
-                #         {'category': 'movies'},
-                #         {'category': 'entertainment', 'type': 'english'}
-                #     ]
-                # }):
-                #     # retrieve imdb info
-                #     fetch_request_imdb(programme.get('title'), programme.get('_id'))
+                # IMDb info should be fetched only for movies/entertainment and english/hindi
+                if channels_collection.find_one({
+                    'name': programme['channel_name'],
+                    '$or': [
+                        {'category': 'movies'},
+                        {'category': 'entertainment', 'type': 'english'}
+                    ]
+                }):
+                    # retrieve imdb info
+                    fetch_request_imdb(programme.get('title'), programme.get('_id'))
                 # else:
                 #     # retrieve info from TIMES about program desc
                 #     fetch_request_desc(programme)
 
-    print 'Finished task'
+    # print 'Finished task'
+
 
 def listing_request_cb(r, *args, **kwargs):
     # print 'fetched: ' + r.url
@@ -191,7 +203,8 @@ def listing_request_cb(r, *args, **kwargs):
         try:
             data = r.json()
         except ValueError, e:
-            volley.get(r.url, None, listing_request_cb)
+            time.sleep(5)
+            volley.get(r.url, None, listing_request_cb, providers['times'])
             print 'error: ', e
             return
 
@@ -215,7 +228,7 @@ def fetch_request(channels_param, from_date, to_date):
     url = build_url('http', tvlistings.constants.TIMES_LISTING_API,
                     tvlistings.constants.TIMES_LISTINGS_ENDPOINT, None)
 
-    volley.get(url, payload, listing_request_cb)
+    volley.get(url, payload, listing_request_cb, providers['times'])
 
 
 def fetch_listings(dt, next_dt):
