@@ -31,7 +31,8 @@ from tvlistings.volley import Volley
 import urlparse
 import HTMLParser
 from bs4 import BeautifulSoup
-
+import threading
+import pprint
 
 client = MongoClient(MONGO_URI)
 db = client[MONGO_DB_NAME]
@@ -44,12 +45,11 @@ listings_collection = db[tvlistings.constants.TV_LISTINGS_COLLECTION]
 LISTINGS_SCHEDULE_DURATION = 6
 BATCH_SIZE = 25
 
-volley = Volley(thread_pool=200)
-
+volley = Volley(thread_pool=30)
+total = 0
 start_date = datetime.utcnow()
 
-programme_dict = dict()
-
+lock = threading.Lock()
 
 def imdb_request_cb(r, *args, **kwargs):
     if r.status_code == 200:
@@ -106,7 +106,7 @@ def desc_request_cb(r, *args, **kwargs):
             synopsis = soup.find('div', class_='content').find_next('p').text
             user_rating = soup.find('span', class_='avgusrrate').text
         except AttributeError, e:
-            print 'Error: ' + str(e) + ' ' + str(soup.find('div', class_='content'))
+            print 'Error: ' + str(e)
 
         o = urlparse.urlparse(r.url)
         query_params = urlparse.parse_qs(o.query)
@@ -128,71 +128,84 @@ def fetch_request_desc(programme):
     start_time = tvlistings.constants.TIMES_DESC_QUERY_START_TIME + programme.get('start')
 
     url = build_url('http', tvlistings.constants.TIMES_LISTING_API)
-    # url += 'tv/programmes/' + slug + '/params/tvprogramme/' + programme_id + '/' + channel_id + '/' + start_time
-    url += 'tv/programmes/params/tvprogramme/' + programme_id + '/' + channel_id + '/' + start_time
+    url += 'tv/programmes/' + slug + '/params/tvprogramme/' + programme_id + '/' + channel_id + '/' + start_time
 
     payload = {
-        tvlistings.constants.IMDB_QUERY_PID: str(programme.get('_id'))
+        tvlistings.constants.IMDB_QUERY_PID: programme.get('_id')
     }
 
     volley.get(url, payload, desc_request_cb)
 
 
 def update_channel_listing(channels):
+    if channels is None:
+        return
+
+    global total
+
     for channel in channels:
         programmes = channel.get('programme', None)
         if programmes is not None:
+            lock.acquire()
+            total += len(programmes)
+            lock.release()
             for programme in programmes:
-                # programme['_id'] = programme['channelid'] + ':' + programme['programmeid'] + ':' + programme['start']
-                programme['title'] = HTMLParser.HTMLParser().unescape(programme['title']).replace('&apos;', "'")
+                # programme['_id'] = programme['programmeid'] + ':' + programme['start']
                 programme['channel_name'] = channel['display-name']
-                # if programme_dict.get(programme['_id'], None) is not None:
-                #     print programme_dict.get(programme['_id'])
-                # else:
-                #     programme_dict[programme['_id']] = 1
+                programme['title'] = HTMLParser.HTMLParser().unescape(programme['title']).replace('&apos;', "'")
 
-                # print programme['title'] + 'updated..'
-                # p = listings_collection.find_one({'_id': programme['_id']})
-                # if p:
-                #     print p, programme
-                # else:
+                # try:
+                #     lock.acquire()
+                # print 'dbwrite:'
                 listings_collection.insert_one(programme)
-                #
-                # IMDb info should be fetched only for movies/entertainment and english/hindi
-                if channels_collection.find_one({
-                    'name': programme['channel_name'],
-                    '$or': [
-                        {'category': 'movies'},
-                        {'category': 'entertainment', 'type': 'english'}
-                    ]
-                }):
-                    # retrieve imdb info
-                    fetch_request_imdb(programme.get('title'), str(programme.get('_id')))
-                else:
-                    # retrieve info from TIMES about program desc
-                    fetch_request_desc(programme)
+                # finally:
+                #     lock.release()
 
+                # time.sleep(0.05)
+                # # replace the existing programme with the latest
+                # listings_collection.update(
+                #     {'_id': programme['_id']},
+                #     programme,
+                #     upsert=True
+                # )
+
+                # # IMDb info should be fetched only for movies/entertainment and english/hindi
+                # if channels_collection.find_one({
+                #     'name': programme['channel_name'],
+                #     '$or': [
+                #         {'category': 'movies'},
+                #         {'category': 'entertainment', 'type': 'english'}
+                #     ]
+                # }):
+                #     # retrieve imdb info
+                #     fetch_request_imdb(programme.get('title'), programme.get('_id'))
+                # else:
+                #     # retrieve info from TIMES about program desc
+                #     fetch_request_desc(programme)
+
+    print 'Finished task'
 
 def listing_request_cb(r, *args, **kwargs):
+    # print 'fetched: ' + r.url
     if r.status_code == 200:
         try:
             data = r.json()
-        except ValueError:
-            # print 'error parsing json data'
+        except ValueError, e:
+            volley.get(r.url, None, listing_request_cb)
+            print 'error: ', e
             return
-
-        # print r.url + '\n'
 
         schedule = data.get('ScheduleGrid', None)
         if schedule is not None:
             channel_listings = schedule.get('channel', None)
             if channel_listings is not None:
-                # print r.url
                 update_channel_listing(channel_listings)
+
+    # volley.complete()
 
 
 def fetch_request(channels_param, from_date, to_date):
-    # print channels_param + '\n'
+    # print from_date, to_date
     payload = {
         tvlistings.constants.QUERY_PARAM_CHANNEL_LIST: channels_param,
         tvlistings.constants.QUERY_PARAM_USER_ID: 0,
@@ -248,6 +261,7 @@ def main():
     # we wait for volley to complete execution of all requests
     volley.join()
     # print 'updated listings for: ' + start_date.strftime("%Y-%m-%d")
+    print 'Total: ', total
     print "Elapsed Time: %s" % (time.time() - start)
 
 

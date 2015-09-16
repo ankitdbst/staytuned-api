@@ -13,13 +13,12 @@ class WorkerThread(threading.Thread):
         while True:
             job = self.queue.get()
             if job:
-                try:
-                    # print 'working on: ' + job.get('url')
-                    requests.get(job.get('url'), params=job.get('params'), hooks=dict(response=job.get('cb')))
-                    self.queue.task_done()
-                except requests.ConnectionError:
-                    # print 'Sleeping for 1 sec...'
-                    time.sleep(1)
+                r = requests.get(job.get('url'), params=job.get('params'))
+                # requests.get(job.get('url'), params=job.get('params'), hooks=dict(response=job.get('cb')))
+                job.get('cb')(r)
+                self.queue.task_done()
+                print 'Task done'
+
 
 class Volley:
     queue = Queue.Queue()
@@ -37,6 +36,9 @@ class Volley:
             'cb': cb
         }
         self.queue.put(job)
+
+        if self.queue.qsize() > 30:
+            time.sleep(5)
 
     def join(self):
         self.queue.join()
