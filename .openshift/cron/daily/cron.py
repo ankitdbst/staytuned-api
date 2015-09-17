@@ -25,7 +25,7 @@ from datetime import datetime, timedelta
 from tvlistings.util import build_url, get_slug
 from config import *
 from pymongo import MongoClient, IndexModel, ASCENDING, DESCENDING
-from bson.objectid import ObjectId
+# from bson.objectid import ObjectId
 
 from tvlistings.volley import Volley
 import urlparse
@@ -77,7 +77,7 @@ def imdb_request_cb(r, *args, **kwargs):
 
             del data['Response']
             listings_collection.update(
-                {'_id': ObjectId(programme_id)},
+                {'_id': programme_id},
                 {'$set': {'imdb': data}}
             )
             # print 'updated response for: ' + programme_id
@@ -124,7 +124,7 @@ def desc_request_cb(r, *args, **kwargs):
         programme_id = query_params.get(tvlistings.constants.IMDB_QUERY_PID)[0]
 
         listings_collection.update(
-            {'_id': ObjectId(programme_id)},
+            {'_id': programme_id},
             {'$set': {
                 'synopsis': synopsis,
                 'user_rating': user_rating
@@ -157,28 +157,28 @@ def update_channel_listing(channels):
     for channel in channels:
         programmes = channel.get('programme', None)
         if programmes is not None:
-            lock.acquire()
-            total += len(programmes)
-            lock.release()
+            # lock.acquire()
+            # total += len(programmes)
+            # lock.release()
             for programme in programmes:
-                # programme['_id'] = programme['programmeid'] + ':' + programme['start']
+                programme['_id'] = programme['channelid'] + ':' + programme['programmeid'] + ':' + programme['start']
                 programme['channel_name'] = channel['display-name']
                 programme['title'] = HTMLParser.HTMLParser().unescape(programme['title']).replace('&apos;', "'")
 
                 # try:
                 #     lock.acquire()
                 # print 'dbwrite:'
-                listings_collection.insert_one(programme)
+                # listings_collection.insert_one(programme)
                 # finally:
                 #     lock.release()
 
                 # time.sleep(0.05)
                 # # replace the existing programme with the latest
-                # listings_collection.update(
-                #     {'_id': programme['_id']},
-                #     programme,
-                #     upsert=True
-                # )
+                listings_collection.update(
+                    {'_id': programme['_id']},
+                    programme,
+                    upsert=True
+                )
 
                 # IMDb info should be fetched only for movies/entertainment and english/hindi
                 if channels_collection.find_one({
@@ -235,6 +235,8 @@ def fetch_listings(dt, next_dt):
     from_date = dt.strftime("%Y%m%d0000")
     to_date = next_dt.strftime("%Y%m%d0000")
 
+    # fetch_request('Star Movies', from_date, to_date)
+
     ctr = 0
     channels_param = ''
     for channel in channels_collection.find():
@@ -274,7 +276,7 @@ def main():
     # we wait for volley to complete execution of all requests
     volley.join()
     # print 'updated listings for: ' + start_date.strftime("%Y-%m-%d")
-    print 'Total: ', total
+    # print 'Total: ', total
     print "Elapsed Time: %s" % (time.time() - start)
 
 
