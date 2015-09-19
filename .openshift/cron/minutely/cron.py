@@ -43,13 +43,13 @@ listings_collection = db[tvlistings.constants.TV_LISTINGS_COLLECTION]
 
 # retrieve next 6 days data from API
 # LISTINGS_SCHEDULE_DURATION = 6
-SYNOPSIS_BATCH_SIZE = 1000
+SYNOPSIS_BATCH_SIZE = 500
 
 providers = {
     'times': 0
 }
 
-volley = Volley(thread_pool=10, providers=providers)
+volley = Volley(thread_pool=15, providers=providers)
 
 
 total = 0
