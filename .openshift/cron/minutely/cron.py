@@ -85,7 +85,7 @@ def synopsis_request_cb(r, *args, **kwargs):
                 time_24 = str(int(time_arr[0]) + delta) + time_arr[1]
                 if time_24 == programme_time:
                     description = day.find_next('div', class_='accordionContent').text
-                    print r.url
+                    # print r.url
                     break
         except:
             # nothing to do, no description available
