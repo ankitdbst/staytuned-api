@@ -49,7 +49,7 @@ providers = {
     'times': 0
 }
 
-volley = Volley(thread_pool=15, providers=providers)
+volley = Volley(thread_pool=25, providers=providers)
 
 
 total = 0
