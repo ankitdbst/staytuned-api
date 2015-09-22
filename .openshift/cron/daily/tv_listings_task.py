@@ -164,21 +164,13 @@ def update_channel_listing(channels):
                 programme['_id'] = programme['channelid'] + ':' + programme['programmeid'] + ':' + programme['start']
                 programme['channel_name'] = channel['display-name']
                 programme['title'] = HTMLParser.HTMLParser().unescape(programme['title']).replace('&apos;', "'")
-
+                programme['synopsis'] = 'N/A'
                 # try:
                 #     lock.acquire()
                 # print 'dbwrite:'
                 # listings_collection.insert_one(programme)
                 # finally:
                 #     lock.release()
-
-                # time.sleep(0.05)
-                # # replace the existing programme with the latest
-                listings_collection.update(
-                    {'_id': programme['_id']},
-                    programme,
-                    upsert=True
-                )
 
                 # IMDb info should be fetched only for movies/entertainment and english/hindi
                 if channels_collection.find_one({
@@ -188,11 +180,21 @@ def update_channel_listing(channels):
                         {'category': 'entertainment', 'type': 'english'}
                     ]
                 }):
+                    programme['imdb_query'] = True
                     # retrieve imdb info
-                    fetch_request_imdb(programme.get('title'), programme.get('_id'))
-                # else:
-                #     # retrieve info from TIMES about program desc
-                #     fetch_request_desc(programme)
+                    # fetch_request_imdb(programme.get('title'), programme.get('_id'))
+                else:
+                    # retrieve info from TIMES about program desc
+                    programme['times_query'] = True
+                    # fetch_request_desc(programme)
+
+                # time.sleep(0.05)
+                # # replace the existing programme with the latest
+                listings_collection.update(
+                    {'_id': programme['_id']},
+                    programme,
+                    upsert=True
+                )
 
     # print 'Finished task'
 
