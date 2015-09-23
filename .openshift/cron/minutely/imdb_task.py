@@ -68,20 +68,24 @@ def imdb_request_cb(r, *args, **kwargs):
             print 'error: ', e
             return
 
+        o = urlparse.urlparse(r.url)
+        query_params = urlparse.parse_qs(o.query)
+        programme_id = query_params.get(tvlistings.constants.IMDB_QUERY_PID)[0]
+
         response = data.get('Response', None)
         if response == 'True':
-            o = urlparse.urlparse(r.url)
-            query_params = urlparse.parse_qs(o.query)
-            programme_id = query_params.get(tvlistings.constants.IMDB_QUERY_PID)[0]
-
             del data['Response']
             listings_collection.update(
                 {'_id': programme_id},
                 {'$set': {'imdb': data, 'imdb_query': False}}
             )
             # print 'updated response for: ' + programme_id
-        # else:
-        #     print r.url
+        else:
+            listings_collection.update(
+                {'_id': programme_id},
+                {'$set': {'imdb_query': False}}
+            )
+            # print r.url
 
 
 def fetch_request_imdb(title, pid, id=None):
