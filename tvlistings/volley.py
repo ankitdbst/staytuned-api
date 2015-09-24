@@ -13,7 +13,7 @@ class WorkerThread(threading.Thread):
         while True:
             job = self.queue.get()
             if job:
-                r = requests.get(job.get('url'), params=job.get('params'))
+                # r = requests.get(job.get('url'), params=job.get('params'))
                 requests.get(job.get('url'), params=job.get('params'), hooks=dict(response=job.get('cb')))
                 # job.get('cb')(r)
                 self.queue.task_done()
