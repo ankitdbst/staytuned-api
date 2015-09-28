@@ -46,8 +46,7 @@ LISTINGS_SCHEDULE_DURATION = 6
 BATCH_SIZE = 25
 
 providers = {
-    'times': 0,
-    'omdb': 1
+    'times': 0
 }
 
 volley = Volley(thread_pool=25, providers=providers)
@@ -183,7 +182,14 @@ def update_channel_listing(channels):
                     programme['imdb_query'] = True
                     # retrieve imdb info
                     # fetch_request_imdb(programme.get('title'), programme.get('_id'))
-                else:
+
+                if channels_collection.find_one({
+                    'name': programme['channel_name'],
+                    '$or': [
+                        {'category': 'sports'},
+                        {'category': 'documentary'}
+                    ]
+                }):
                     # retrieve info from TIMES about program desc
                     programme['times_query'] = True
                     # fetch_request_desc(programme)
@@ -268,6 +274,8 @@ def init():
     listings_collection.create_index('channel_name')
     listings_collection.create_index('start')
     listings_collection.create_index('stop')
+    listings_collection.create_index('imdb_query')
+    listings_collection.create_index('times_query')
 
 
 def main():
