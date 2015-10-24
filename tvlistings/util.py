@@ -17,12 +17,8 @@ def build_url(scheme, base_url, path='', query_params=None):
     if query_params is None:
         return url
 
-    url += URL_QUERY_SEPARATOR
-
-    for key, value in query_params.iteritems():
-        url += key + '=' + urllib.urlencode(value) + URL_QUERY_PARAM_SEPARATOR
-
-    return url[:-1]
+    url += URL_QUERY_SEPARATOR + urllib.urlencode(query_params)
+    return url
 
 
 def cleanse_title(title):

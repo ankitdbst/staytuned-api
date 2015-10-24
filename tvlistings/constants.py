@@ -23,8 +23,14 @@ IMDB_QUERY_PLOT_TYPE = 'plot'
 IMDB_QUERY_BY_TITLE = 't'
 IMDB_QUERY_BY_ID = 'i'
 
-IMDB_QUERY_PID = 'pid'
+QUERY_PID = 'pid'
 
 TIMES_DESC_QUERY_PROGRAMME_ID = 'programmeid-'
 TIMES_DESC_QUERY_CHANNEL_ID = 'channelid-'
 TIMES_DESC_QUERY_START_TIME = 'starttime-'
+
+# retrieve next 6 days data from API
+LISTINGS_SCHEDULE_DURATION = 6
+BATCH_SIZE = 25
+POOL_SIZE = 15
+

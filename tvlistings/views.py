@@ -1,15 +1,13 @@
-from tvlistings import app, constants, db
+from tvlistings import app, listings_collection, channels_collection
 from bson.json_util import dumps
 from flask import request, Response
 import json
-
-channels_collection = db[constants.TV_CHANNELS_COLLECTION]
-listings_collection = db[constants.TV_LISTINGS_COLLECTION]
 
 
 @app.route('/api/channels', methods=['GET'])
 def get_channels():
     category = request.args.get('category', '')
+
     lang = request.args.get('language', '')  # hindi/english
 
     if category == '' and lang == '':
