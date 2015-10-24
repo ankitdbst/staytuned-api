@@ -106,7 +106,7 @@ class WorkerHTTPImdb(WorkerHTTP):
             'imdb_query': True
         }).sort([
             ('startime', ASCENDING),
-        ]).limit(100)
+        ])
 
         for programme in cursor:
             self.request_imdb(programme.get('title'), programme.get('_id'))
