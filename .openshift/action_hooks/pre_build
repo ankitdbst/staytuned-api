@@ -2,7 +2,8 @@
 export OPENSHIFT_BACKUP_RESTORE=TRUE
 
 echo "Deleting tv_listings and tv_channels collection..."
-mongo $OPENSHIFT_MONGODB_DB_NAME --eval "db.getCollection('tv_listings').drop(); db.getCollection('tv_channels').drop()"
+mongo "mongodb://" . $OPENSHIFT_MONGODB_USER_NAME . ":" . $OPENSHIFT_MONGODB_USER_PASS . "@" . $OPENSHIFT_MONGODB_DB_HOST . ":" . $OPENSHIFT_MONGODB_DB_PORT
+ --eval "db.getCollection('tv_listings').drop(); db.getCollection('tv_channels').drop()"
 echo "Running mongorestore..."
 mongorestore --host $OPENSHIFT_MONGODB_DB_HOST --port $OPENSHIFT_MONGODB_DB_PORT --username $OPENSHIFT_MONGODB_USER_NAME --password $OPENSHIFT_MONGODB_USER_PASS $OPENSHIFT_PYTHON_DIR/tasks/dump
 echo "Completed restore!"
