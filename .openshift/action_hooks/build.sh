@@ -1,4 +1,4 @@
-#!/bin/sh
+#!/usr/bin/env bash
 export OPENSHIFT_BACKUP_RESTORE=TRUE
 
 echo "Deleting tv_listings and tv_channels collection..."
