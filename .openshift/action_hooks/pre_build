@@ -7,7 +7,7 @@ echo $MONGO_URI
 
 mongo $MONGO_URI -u $OPENSHIFT_MONGODB_USER_NAME -p $OPENSHIFT_MONGODB_USER_PASS --eval "db.getCollection('tv_listings').drop(); db.getCollection('tv_channels').drop()"
 echo "Running mongorestore..."
-mongorestore --host $OPENSHIFT_MONGODB_DB_HOST --port $OPENSHIFT_MONGODB_DB_PORT --username $OPENSHIFT_MONGODB_USER_NAME --password $OPENSHIFT_MONGODB_USER_PASS $OPENSHIFT_PYTHON_DIR/tasks/dump
+mongorestore --host $OPENSHIFT_MONGODB_DB_HOST --port $OPENSHIFT_MONGODB_DB_PORT --username $OPENSHIFT_MONGODB_USER_NAME --password $OPENSHIFT_MONGODB_USER_PASS $OPENSHIFT_PYTHON_DIRtasks/dump
 echo "Completed restore!"
 
 export OPENSHIFT_BACKUP_RESTORE=FALSE
