@@ -1,0 +1,19 @@
+#!/bin/bash
+cd $STAYTUNED_DIR
+source venv/bin/activate
+
+python tasks/worker_times_channels.py > tasks/logs/worker_times_channels.log 2>&1
+python tasks/worker_times_listing.py > tasks/logs/worker_times_listings.log 2>&1
+python tasks/worker_imdb.py > tasks/logs/worker_imdb.log 2>&1
+python tasks/worker_times_scraping.py > tasks/logs/worker_times_scraping.log 2>&1
+
+rm -rf tasks/dump*
+mkdir tasks/dump
+
+mongodump --username "admin" --password "admin" --authenticationDatabase "admin" --db stay --collection tv_channels --out tasks/dump > tasks/logs/db/tv_channels.log 2>&1
+mongodump --username "admin" --password "admin" --authenticationDatabase "admin" --db stay --collection tv_listings --out tasks/dump > tasks/logs/db/tv_listings.log 2>&1
+
+git add tasks/dump/* > tasks/logs/git.log 2>&1
+git commit -m "Updated listings: `date '+%Y/%m/%d %H:%M:%S'`" > tasks/logs/git.log 2>&1
+git push -u prod master > tasks/logs/git.log 2>&1
+
